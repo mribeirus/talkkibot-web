@@ -10,13 +10,15 @@ const COOKIE_NAME = 'talkki_session';
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', chunk => {
+
+    req.on('data', (chunk) => {
       data += chunk;
       if (data.length > 1_000_000) {
         req.destroy();
         reject(new Error('Payload muito grande'));
       }
     });
+
     req.on('end', () => resolve(data));
     req.on('error', reject);
   });
@@ -26,11 +28,14 @@ function parseCookies(req) {
   const header = req.headers.cookie || '';
   const entries = header
     .split(';')
-    .map(v => v.trim())
+    .map((v) => v.trim())
     .filter(Boolean)
-    .map(v => {
+    .map((v) => {
       const idx = v.indexOf('=');
-      return [decodeURIComponent(v.slice(0, idx)), decodeURIComponent(v.slice(idx + 1))];
+      return [
+        decodeURIComponent(v.slice(0, idx)),
+        decodeURIComponent(v.slice(idx + 1)),
+      ];
     });
 
   return Object.fromEntries(entries);
@@ -38,12 +43,14 @@ function parseCookies(req) {
 
 function sendJson(res, status, payload, extraHeaders = {}) {
   const body = JSON.stringify(payload);
+
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(body),
     'Cache-Control': 'no-store',
     ...extraHeaders,
   });
+
   res.end(body);
 }
 
@@ -53,6 +60,7 @@ function sendHtml(res, html) {
     'Content-Length': Buffer.byteLength(html),
     'Cache-Control': 'no-store',
   });
+
   res.end(html);
 }
 
@@ -105,14 +113,13 @@ function appHtml() {
       --border: #2a2a2a;
       --text: #f5f5f5;
       --muted: #9ca3af;
-      --accent: #ffffff;
-      --accent-soft: #d4d4d4;
       --danger: #ef4444;
       --shadow: 0 10px 30px rgba(0,0,0,.30);
       --radius: 18px;
     }
 
     * { box-sizing: border-box; }
+
     html, body {
       margin: 0;
       padding: 0;
@@ -161,13 +168,7 @@ function appHtml() {
       color: #000;
       font-weight: 900;
       font-size: 18px;
-    }
-
-    .brand small {
-      color: var(--muted);
-      font-size: 14px;
-      font-weight: 600;
-      margin-left: 6px;
+      flex: 0 0 auto;
     }
 
     .section-title {
@@ -518,8 +519,9 @@ function appHtml() {
     <div class="login-card">
       <div class="brand" style="padding:0 0 14px 0">
         <span class="brand-badge">T</span>
-        <span>${APP_NAME}<small>OPS</small></span>
+        <span>${APP_NAME}</span>
       </div>
+
       <h1>Entrar</h1>
       <p>Seu gestor operacional para condomínios, com interface própria e backend seguro.</p>
 
@@ -544,7 +546,7 @@ function appHtml() {
     <aside class="sidebar">
       <div class="brand">
         <span class="brand-badge">T</span>
-        <span>${APP_NAME}<small>OPS</small></span>
+        <span>${APP_NAME}</span>
       </div>
 
       <div class="section-title">Condomínios</div>
@@ -1020,56 +1022,36 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/api/condominios' && req.method === 'PUT') {
     return proxyJson(req, res, '/api/v1/projects');
+  }
+
   const viewsMatch = url.pathname.match(/^\/api\/condominios\/(\d+)\/views$/);
   if (viewsMatch && req.method === 'GET') {
-    return proxyJson(req, res, `/api/v1/projects/${viewsMatch[1]}/views`);
+    return proxyJson(req, res, '/api/v1/projects/' + viewsMatch[1] + '/views');
   }
 
   const viewTasksMatch = url.pathname.match(/^\/api\/condominios\/(\d+)\/views\/(\d+)\/tasks$/);
   if (viewTasksMatch && req.method === 'GET') {
-    return proxyJson(req, res, `/api/v1/projects/${viewTasksMatch[1]}/views/${viewTasksMatch[2]}/tasks`);
+    return proxyJson(req, res, '/api/v1/projects/' + viewTasksMatch[1] + '/views/' + viewTasksMatch[2] + '/tasks');
   }
 
   const condominioTasksMatch = url.pathname.match(/^\/api\/condominios\/(\d+)\/tasks$/);
   if (condominioTasksMatch && req.method === 'PUT') {
-    return proxyJson(req, res, `/api/v1/projects/${condominioTasksMatch[1]}/tasks`);
+    return proxyJson(req, res, '/api/v1/projects/' + condominioTasksMatch[1] + '/tasks');
   }
 
   const taskMatch = url.pathname.match(/^\/api\/tasks\/(\d+)$/);
   if (taskMatch && req.method === 'POST') {
-    return proxyJson(req, res, `/api/v1/tasks/${taskMatch[1]}`);
+    return proxyJson(req, res, '/api/v1/tasks/' + taskMatch[1]);
   }
 
   if (taskMatch && req.method === 'DELETE') {
-    return proxyJson(req, res, `/api/v1/tasks/${taskMatch[1]}`);
-  }
-  if (viewsMatch && req.method === 'GET') {
-    return proxyJson(req, res, \`/api/v1/projects/\${viewsMatch[1]}/views\`);
-  }
-
-  const viewTasksMatch = url.pathname.match(/^\\/api\\/condominios\\/(\\d+)\\/views\\/(\\d+)\\/tasks$/);
-  if (viewTasksMatch && req.method === 'GET') {
-    return proxyJson(req, res, \`/api/v1/projects/\${viewTasksMatch[1]}/views/\${viewTasksMatch[2]}/tasks\`);
-  }
-
-  const condominioTasksMatch = url.pathname.match(/^\\/api\\/condominios\\/(\\d+)\\/tasks$/);
-  if (condominioTasksMatch && req.method === 'PUT') {
-    return proxyJson(req, res, \`/api/v1/projects/\${condominioTasksMatch[1]}/tasks\`);
-  }
-
-  const taskMatch = url.pathname.match(/^\\/api\\/tasks\\/(\\d+)$/);
-  if (taskMatch && req.method === 'POST') {
-    return proxyJson(req, res, \`/api/v1/tasks/\${taskMatch[1]}\`);
-  }
-
-  if (taskMatch && req.method === 'DELETE') {
-    return proxyJson(req, res, \`/api/v1/tasks/\${taskMatch[1]}\`);
+    return proxyJson(req, res, '/api/v1/tasks/' + taskMatch[1]);
   }
 
   return sendJson(res, 404, { message: 'Rota não encontrada.' });
 });
 
 server.listen(PORT, () => {
-  console.log(\`\${APP_NAME} rodando em http://0.0.0.0:\${PORT}\`);
-  console.log(\`Usando backend Vikunja: \${VIKUNJA_URL}\`);
+  console.log(`${APP_NAME} rodando em http://0.0.0.0:${PORT}`);
+  console.log(`Usando backend Vikunja: ${VIKUNJA_URL}`);
 });
